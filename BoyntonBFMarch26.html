@@ -468,15 +468,6 @@ function doExport() {
   ].join('\r\n');
 
   const filename = 'backflow-boynton-' + new Date().toISOString().slice(0,10) + '.csv';
-
-  // Try native file share first (mobile)
-  if (navigator.share && navigator.canShare) {
-    const file = new File([csv], filename, { type: 'text/csv' });
-    if (navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: 'Backflow Report – Boynton Beach' }).catch(() => downloadCsv(csv, filename));
-      return;
-    }
-  }
   downloadCsv(csv, filename);
 }
 
