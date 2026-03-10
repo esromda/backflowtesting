@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Backflow Testing · Boynton Beach</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'DM Mono', 'Courier New', monospace; background: #0f1117; min-height: 100vh; color: #e8eaf0; max-width: 480px; margin: 0 auto; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #1a1d27; }
+  ::-webkit-scrollbar-thumb { background: #3a3f52; border-radius: 2px; }
+
+  #header { background: #13161f; border-bottom: 1px solid #2a2d3a; padding: 16px 20px 12px; position: sticky; top: 0; z-index: 10; }
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .app-title { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 0.02em; color: #f0f2ff; line-height: 1; }
+  .app-subtitle { font-size: 11px; color: #6b7280; margin-top: 3px; letter-spacing: 0.08em; }
+  .pct-label { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 700; line-height: 1; text-align: right; }
+  .pct-sub { font-size: 11px; color: #6b7280; letter-spacing: 0.06em; text-align: right; }
+  #progress-bar-wrap { height: 4px; background: #2a2d3a; border-radius: 2px; overflow: hidden; margin-bottom: 12px; }
+  #progress-bar { height: 100%; width: 0%; border-radius: 2px; transition: width 0.3s ease; background: linear-gradient(90deg,#f59e0b,#fbbf24); }
+  #search { width: 100%; background: #1e2130; border: 1px solid #2a2d3a; border-radius: 8px; padding: 9px 12px; color: #e8eaf0; font-size: 13px; font-family: inherit; outline: none; margin-bottom: 10px; }
+  #search::placeholder { color: #4b5563; }
+  .filter-tabs { display: flex; gap: 5px; }
+  .filter-btn { flex: 1; padding: 6px 2px; border-radius: 6px; border: 1px solid #2a2d3a; background: transparent; color: #6b7280; font-size: 9px; font-family: inherit; font-weight: 500; letter-spacing: 0.05em; cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+  .filter-btn.active-all       { border-color: #f59e0b; background: #451a03; color: #fbbf24; }
+  .filter-btn.active-remaining { border-color: #6b7280; background: #1e2130; color: #d1d5db; }
+  .filter-btn.active-done      { border-color: #22c55e; background: #14532d; color: #4ade80; }
+  .filter-btn.active-flagged   { border-color: #ef4444; background: #450a0a; color: #fca5a5; }
+
+  #stop-list { padding-bottom: 20px; }
+  .stop-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #1e2130; cursor: pointer; transition: background 0.15s; }
+  .stop-row:active { background: #1e2130; }
+  .stop-row.done { opacity: 0.5; background: #13161f; }
+  .stop-row.flagged { border-left: 3px solid #ef4444; padding-left: 13px; }
+  .stop-row.flagged.done { border-left-color: #7f1d1d; }
+  .stop-num { width: 28px; height: 28px; border-radius: 6px; background: #1a1d27; border: 1px solid #3a3f52; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #9ca3af; flex-shrink: 0; margin-right: 12px; }
+  .stop-row.done .stop-num { border-color: #2a2d3a; color: #4b5563; }
+  .stop-row.flagged .stop-num { border-color: #ef4444; color: #fca5a5; background: #450a0a; }
+  .stop-info { flex: 1; min-width: 0; }
+  .stop-addr { font-size: 13px; font-weight: 500; color: #e8eaf0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .stop-row.done .stop-addr { text-decoration: line-through; color: #4b5563; }
+  .stop-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .type-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+  .type-PVB { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .type-RP  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .stop-device { font-size: 11px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-indicators { display: flex; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
+  .ind { font-size: 10px; }
+  .ind-flag { color: #ef4444; } .ind-note { color: #f59e0b; } .ind-edited { color: #a78bfa; }
+  .check-btn { width: 36px; height: 36px; border-radius: 8px; border: 2px solid #3a3f52; background: transparent; color: #4b5563; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 10px; transition: all 0.15s; }
+  .check-btn:active { transform: scale(0.92); }
+  .check-btn.checked { border-color: #22c55e; background: #14532d; color: #4ade80; }
+  .empty-msg { text-align: center; padding: 48px 20px; color: #4b5563; font-size: 13px; line-height: 1.6; }
+
+  /* export bar */
+  #export-bar { padding: 10px 16px; border-bottom: 1px solid #2a2d3a; background: #13161f; }
+  .export-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid #3a3f52; border-radius: 8px; color: #9ca3af; font-size: 11px; font-family: inherit; letter-spacing: 0.07em; cursor: pointer; transition: all 0.12s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .export-btn:active { background: #1e2130; }
+  .export-has-data { border-color: #f59e0b; color: #fbbf24; background: #451a03; }
+
+  #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 20; }
+  #overlay.open { display: block; animation: fadeIn 0.18s ease-out; }
+  #drawer { display: none; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: #13161f; border-top: 1px solid #2a2d3a; border-radius: 16px 16px 0 0; z-index: 30; padding: 0 0 36px; max-height: 92vh; overflow-y: auto; }
+  #drawer.open { display: block; animation: slideUp 0.22s ease-out; }
+  .drag-handle { display: flex; justify-content: center; padding: 12px 0 8px; cursor: pointer; }
+  .drag-nub { width: 36px; height: 4px; border-radius: 2px; background: #3a3f52; }
+  .drawer-body { padding: 0 20px; }
+
+  #flag-banner { background: #450a0a; border: 1px solid #ef4444; border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  #flag-banner.hidden { display: none; }
+  .flag-banner-text { font-size: 11px; color: #fca5a5; letter-spacing: 0.05em; flex: 1; }
+  .flag-banner-remove { font-size: 10px; color: #ef4444; cursor: pointer; padding: 2px 6px; border: 1px solid #7f1d1d; border-radius: 4px; background: transparent; font-family: inherit; }
+
+  .drawer-top-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .drawer-stop-num { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: #6b7280; }
+  .drawer-address { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 700; color: #f0f2ff; line-height: 1.2; margin-bottom: 16px; }
+  .drawer-city-sub { font-size: 14px; font-weight: 600; color: #6b7280; margin-top: 2px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .detail-cell { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 8px 12px; }
+  .detail-cell.full { grid-column: 1 / -1; }
+  .detail-cell.edited { border-color: #7c3aed; }
+  .detail-label { font-size: 10px; color: #6b7280; letter-spacing: 0.08em; margin-bottom: 3px; }
+  .detail-cell.edited .detail-label { color: #a78bfa; }
+  .detail-val { font-size: 14px; font-weight: 500; color: #e8eaf0; word-break: break-all; }
+  .notes-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .notes-box.orig  { border-left: 3px solid #4b5563; }
+  .notes-box.field { border-left: 3px solid #f59e0b; }
+  .notes-label { font-size: 10px; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .notes-box.orig .notes-label { color: #6b7280; }
+  .notes-box.field .notes-label { color: #f59e0b; }
+  .notes-text { font-size: 13px; color: #d1d5db; line-height: 1.5; }
+
+  .action-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .nav-link { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 12px 8px; background: #451a03; border: 1px solid #f59e0b; border-radius: 10px; color: #fbbf24; font-size: 12px; font-family: inherit; font-weight: 500; text-decoration: none; }
+  .complete-btn { flex: 1; padding: 12px 8px; background: #14532d; border: 1px solid #22c55e; border-radius: 10px; color: #4ade80; font-size: 12px; font-family: inherit; font-weight: 500; cursor: pointer; transition: all 0.12s; }
+  .complete-btn.undo { background: #1e2130; border-color: #3a3f52; color: #6b7280; }
+  .flag-btn { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 12px; font-family: inherit; font-weight: 500; cursor: pointer; border: 1px solid #3a3f52; background: transparent; color: #6b7280; }
+  .flag-btn.active { background: #450a0a; border-color: #ef4444; color: #fca5a5; }
+  .flag-btn:active, .complete-btn:active { transform: scale(0.97); }
+  .edit-btn { width: 100%; padding: 11px; background: transparent; border: 1px solid #3a3f52; border-radius: 10px; color: #9ca3af; font-size: 12px; font-family: inherit; letter-spacing: 0.06em; cursor: pointer; margin-bottom: 10px; }
+  .edit-btn:active { background: #1e2130; }
+  .prev-next { display: flex; gap: 10px; }
+  .pn-btn { flex: 1; padding: 10px; background: transparent; border: 1px solid #2a2d3a; border-radius: 8px; color: #9ca3af; font-size: 12px; font-family: inherit; cursor: pointer; }
+  .pn-btn:disabled { color: #3a3f52; cursor: default; }
+  .pn-btn:not(:disabled):active { background: #1e2130; }
+
+  .edit-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .edit-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: #f0f2ff; }
+  .edit-subtitle { font-size: 11px; color: #6b7280; margin-top: 2px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cancel-btn { padding: 6px 12px; background: transparent; border: 1px solid #3a3f52; border-radius: 6px; color: #9ca3af; font-size: 11px; font-family: inherit; cursor: pointer; flex-shrink: 0; }
+  .section-label { font-size: 10px; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 10px; }
+  .field-group { margin-bottom: 12px; }
+  .field-label { font-size: 10px; color: #6b7280; letter-spacing: 0.08em; margin-bottom: 5px; display: block; }
+  .field-input { width: 100%; background: #1e2130; border: 1px solid #2a2d3a; border-radius: 8px; padding: 9px 12px; color: #e8eaf0; font-size: 13px; font-family: inherit; outline: none; -webkit-appearance: none; }
+  .field-input:focus { border-color: #f59e0b; }
+  .field-textarea { width: 100%; background: #1e2130; border: 1px solid #2a2d3a; border-radius: 8px; padding: 9px 12px; color: #e8eaf0; font-size: 13px; font-family: inherit; outline: none; resize: vertical; min-height: 90px; line-height: 1.5; }
+  .field-textarea:focus { border-color: #f59e0b; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .divider { height: 1px; background: #2a2d3a; margin: 14px 0; }
+  .save-btn { width: 100%; padding: 14px; background: #451a03; border: 1px solid #f59e0b; border-radius: 10px; color: #fbbf24; font-size: 13px; font-family: inherit; font-weight: 500; cursor: pointer; margin-top: 4px; }
+  .save-btn:active { opacity: 0.8; }
+
+  @keyframes slideUp { from { transform: translateX(-50%) translateY(100%); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="header-top">
+    <div>
+      <div class="app-title">BACKFLOW TESTING</div>
+      <div class="app-subtitle">BOYNTON BEACH, FL · 38 LOCATIONS</div>
+    </div>
+    <div>
+      <div class="pct-label" id="pct-label">0%</div>
+      <div class="pct-sub" id="pct-sub">0/38 DONE</div>
+    </div>
+  </div>
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <input id="search" type="search" placeholder="Search address, serial, CCN, make…" oninput="renderList()" />
+  <div class="filter-tabs">
+    <button class="filter-btn active-all" onclick="setFilter('all',this)"      id="tab-all">ALL (38)</button>
+    <button class="filter-btn"            onclick="setFilter('remaining',this)" id="tab-remaining">REM (38)</button>
+    <button class="filter-btn"            onclick="setFilter('done',this)"      id="tab-done">DONE (0)</button>
+    <button class="filter-btn"            onclick="setFilter('flagged',this)"   id="tab-flagged">🚩 FLAGS (0)</button>
+  </div>
+</div>
+
+<div id="export-bar">
+  <button class="export-btn export-has-data" id="export-btn" onclick="doExport()">📤 EXPORT ALL DATA AS CSV</button>
+</div>
+
+<div id="stop-list"></div>
+
+<div id="overlay" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <div class="drag-handle" onclick="closeDrawer()"><div class="drag-nub"></div></div>
+  <div class="drawer-body">
+    <div id="view-mode">
+      <div id="flag-banner" class="hidden">
+        <span style="font-size:16px">🚩</span>
+        <span class="flag-banner-text">FLAGGED FOR REVIEW</span>
+        <button class="flag-banner-remove" onclick="toggleFlag()">REMOVE FLAG</button>
+      </div>
+      <div class="drawer-top-row">
+        <span class="drawer-stop-num" id="d-stopnum"></span>
+        <span class="type-badge" id="d-typebadge"></span>
+      </div>
+      <div class="drawer-address" id="d-address"></div>
+      <div class="detail-grid" id="d-grid"></div>
+      <div class="notes-box orig" id="d-orig-notesbox">
+        <div class="notes-label">LOCATION NOTES</div>
+        <div class="notes-text" id="d-orig-notes"></div>
+      </div>
+      <div class="notes-box field" id="d-field-notesbox">
+        <div class="notes-label">✎ FIELD NOTES</div>
+        <div class="notes-text" id="d-field-notes"></div>
+      </div>
+      <div class="action-row">
+        <a class="nav-link" id="d-nav" href="#" target="_blank">↗ NAV</a>
+        <button class="complete-btn" id="d-complete" onclick="toggleFromDrawer()"></button>
+        <button class="flag-btn" id="d-flag" onclick="toggleFlag()"></button>
+      </div>
+      <button class="edit-btn" onclick="openEdit()">✎ EDIT DEVICE INFO &amp; NOTES</button>
+      <div class="prev-next">
+        <button class="pn-btn" id="d-prev" onclick="shiftStop(-1)">← PREV</button>
+        <button class="pn-btn" id="d-next" onclick="shiftStop(1)">NEXT →</button>
+      </div>
+    </div>
+    <div id="edit-mode" style="display:none">
+      <div class="edit-header">
+        <div><div class="edit-title">EDIT STOP</div><div class="edit-subtitle" id="e-subtitle"></div></div>
+        <button class="cancel-btn" onclick="closeEdit()">CANCEL</button>
+      </div>
+      <div class="section-label">DEVICE INFORMATION</div>
+      <div class="field-row">
+        <div class="field-group"><label class="field-label">TYPE</label><select id="e-type" class="field-input"><option value="PVB">PVB</option><option value="RP">RP</option></select></div>
+        <div class="field-group"><label class="field-label">SIZE</label><input id="e-size" class="field-input" type="text" /></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label class="field-label">MAKE</label><input id="e-make" class="field-input" type="text" /></div>
+        <div class="field-group"><label class="field-label">MODEL</label><input id="e-model" class="field-input" type="text" /></div>
+      </div>
+      <div class="field-group"><label class="field-label">SERIAL #</label><input id="e-serial" class="field-input" type="text" /></div>
+      <div class="divider"></div>
+      <div class="section-label">FIELD NOTES</div>
+      <div class="field-group"><label class="field-label">NOTES FOR THIS STOP</label><textarea id="e-fieldnotes" class="field-textarea" placeholder="e.g. device corroded, serial mismatch, access issue…"></textarea></div>
+      <button class="save-btn" onclick="saveEdit()">SAVE CHANGES</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Optimized route: SW corner → S Congress → Lawrence Rd cluster → Meadow/Winfield/Miner →
+// Summit → Cedar Point/Stonehaven → SW Congress/W Ocean/SW 6th → High Ridge →
+// Renaissance/N Congress → Industrial/NW 7th → downtown core → Federal Hwy → Ocean Blvd
+const BASE_STOPS = [
+  // ── FAR SW CORNER ──
+  { id:1,  address:"12120 La Vita Way",              type:"RP",  size:'¾"',  make:"Febco",   model:"825",       serial:"H02015",     ccn:"6N32-B4RD", notes:"LS927 — Irrigation" },
+  { id:2,  address:"12599 S Military Trl",           type:"RP",  size:'1"',  make:"Watts",   model:"9",          serial:"34668",     ccn:"6Y87-B9HE", notes:"N Of Flav Pic - Oil Chg Plc - LS923" },
+  { id:3,  address:"5318 Flavor Pict Rd",            type:"RP",  size:'¾"',  make:"Febco",   model:"LF825",     serial:"5555",       ccn:"2F22-D9RJ", notes:"LS934" },
+  { id:4,  address:"4600 Boxwood Cir",               type:"RP",  size:'¾"',  make:"Febco",   model:"825",       serial:"BD5284",     ccn:"8Q96-U5VS", notes:"By Clubhouse Inside Fence - LS910" },
+  // ── S CONGRESS AVE ──
+  { id:5,  address:"3401 S Congress Ave",            type:"PVB", size:'1½"', make:"Verify",  model:"Verify PVB",serial:"H022242",    ccn:"5E75-L6CL", notes:"In Median Across Public Storage — verify make/model" },
+  { id:6,  address:"3401 S Congress Ave",            type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052681",  ccn:"3S87-J6EZ", notes:"WXEL TV - LS816 — Irrigation" },
+  // ── LAWRENCE RD CLUSTER (west, far out) ──
+  { id:7,  address:"10751 Lawrence Rd",              type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1053044",  ccn:"6A62-M5DB", notes:"LS814 — Irrigation" },
+  { id:8,  address:"801 Lawrence Rd",                type:"RP",  size:'2"',  make:"Wilkins", model:"975",       serial:"2675407",    ccn:"6H89-F9ZY", notes:"LS801" },
+  { id:9,  address:"3500 Lawrence Rd",               type:"RP",  size:'2"',  make:"Wilkins", model:"975",       serial:"3566418",    ccn:"6J83-G3QA", notes:"LS319 Master" },
+  { id:10, address:"7200 Lawrence Rd",               type:"RP",  size:'1"',  make:"Febco",   model:"825",       serial:"AG4378",     ccn:"2A25-V5GV", notes:"Rt Side Compound - LS920" },
+  // ── MEADOW VIEW / WINFIELD / MINER ──
+  { id:11, address:"4343 Meadow View Dr",            type:"RP",  size:'¾"',  make:"Wilkins", model:"975XL2",    serial:"4592156",    ccn:"5W58-G3EY", notes:"LS723" },
+  { id:12, address:"3883 Winfield Rd",               type:"RP",  size:'¾"',  make:"Febco",   model:"825",       serial:"BA4730",     ccn:"3E43-L7DN", notes:"Left Of Panel - LS701" },
+  { id:13, address:"801 Miner Rd",                   type:"RP",  size:'¾"',  make:"Wilkins", model:"975",       serial:"3262384",    ccn:"7R77-M6QZ", notes:"At SW Property Corner Inside LS - LS722" },
+  // ── SUMMIT BLVD ──
+  { id:14, address:"2700 Summit Blvd",               type:"RP",  size:'¾"',  make:"Wilkins", model:"975",       serial:"2956911",    ccn:"4Y76-A6RA", notes:"LS812" },
+  { id:15, address:"3500 Summit Blvd",               type:"RP",  size:'¾"',  make:"Febco",   model:"825",       serial:"BD5339",     ccn:"5J86-F4BM", notes:"L Panel - LS813" },
+  // ── CEDAR POINT / STONEHAVEN ──
+  { id:16, address:"1 Cedar Point Blvd",             type:"RP",  size:'¾"',  make:"Wilkins", model:"975",       serial:"2956914",    ccn:"4Q76-N3MT", notes:"LS805" },
+  { id:17, address:"1723 Stonehaven Dr",             type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052654",  ccn:"3L42-A9CE", notes:"LS614" },
+  // ── SW CONGRESS / W OCEAN / SW 6TH ──
+  { id:18, address:"2000 SW Congress Blvd",          type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052780",  ccn:"8G66-K5AW", notes:"LS612 — Irrigation" },
+  { id:19, address:"800 W Ocean Ave",                type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052761",  ccn:"7V83-X5UL", notes:"LS602" },
+  { id:20, address:"600 SW 6th St",                  type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052807",  ccn:"2T39-C8CX", notes:"LS603" },
+  // ── HIGH RIDGE RD ──
+  { id:21, address:"2100 High Ridge Rd",             type:"RP",  size:'4"',  make:"Watts",   model:"994",       serial:"1064520519", ccn:"2V84-C8YY", notes:"Domestic" },
+  { id:22, address:"2100 High Ridge Rd",             type:"RP",  size:'2"',  make:"Wilkins", model:"975XL2",    serial:"4756409",    ccn:"7S76-M4KZ", notes:"Same property as stop 21" },
+  // ── RENAISSANCE COMMONS / N CONGRESS ──
+  { id:23, address:"1675 Renaissance Commons Blvd",  type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AH31811",    ccn:"2D86-L7JV", notes:"LS706" },
+  { id:24, address:"1905 N Congress Ave",            type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1044597",  ccn:"6B85-T3KR", notes:"Next to Whalers Cove Apt - LS705" },
+  { id:25, address:"1797 N Congress Ave",            type:"RP",  size:'2"',  make:"Verify",  model:"Verify RP", serial:"133256",     ccn:"4H39-C4QH", notes:"Irrigation — verify make/model" },
+  { id:26, address:"2501 N Congress Ave",            type:"PVB", size:'2"',  make:"Wilkins", model:"720A",      serial:"331163",     ccn:"7A24-A3KN", notes:"Irrigation" },
+  // ── INDUSTRIAL WAY / NW 7TH CT ──
+  { id:27, address:"653 Industrial Way",             type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052682",  ccn:"8U67-C9CS", notes:"LS718" },
+  { id:28, address:"7300 NW 7th Ct",                 type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052763",  ccn:"4H79-L3FR", notes:"LS717 — Irrigation" },
+  // ── DOWNTOWN CORE ──
+  { id:29, address:"303 NW 1st St",                  type:"PVB", size:'1"',  make:"Wilkins", model:"720A",      serial:"755126",     ccn:"8U44-U6YZ", notes:"" },
+  { id:30, address:"515 NW 7th Ct",                  type:"PVB", size:'1½"', make:"Wilkins", model:"720A",      serial:"328774",     ccn:"9Q69-L7JD", notes:"At Park N End" },
+  { id:31, address:"401 NW 13th Ave",                type:"RP",  size:'1"',  make:"Wilkins", model:"975",       serial:"3075778",    ccn:"7R97-L4UB", notes:"In Gate Front Center - LS313" },
+  { id:32, address:"1 NE 4th St",                    type:"PVB", size:'1"',  make:"Wilkins", model:"720A",      serial:"CB321467",   ccn:"4U73-U6AM", notes:"Prk Lot On Crn 4th St - NE 1st Ave" },
+  { id:33, address:"100 NE 4th Ave",                 type:"PVB", size:'1"',  make:"Wilkins", model:"720A",      serial:"G213013",    ccn:"3Q32-J4BJ", notes:"In Single Bush At Park" },
+  // ── FEDERAL HWY ──
+  { id:34, address:"2424 N Federal Hwy",             type:"RP",  size:'¾"',  make:"Wilkins", model:"975",       serial:"2105372",    ccn:"8U97-D6MN", notes:"City Device LS - LS201" },
+  { id:35, address:"2870 S Federal Hwy",             type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1053072",  ccn:"5Z79-U2CU", notes:"LS207" },
+  { id:36, address:"362 Main Blvd",                  type:"RP",  size:'¾"',  make:"ARI",     model:"RP 500",    serial:"AB1052646",  ccn:"8N27-F8JQ", notes:"LS404" },
+  // ── OCEAN BLVD ──
+  { id:37, address:"3951 N Ocean Blvd",              type:"RP",  size:'¾"',  make:"Febco",   model:"825",       serial:"BD5196",     ccn:"2G75-V2WB", notes:"W Wall - LS104" },
+  { id:38, address:"4475 N Ocean Blvd",              type:"RP",  size:'1"',  make:"Verify",  model:"Verify RP", serial:"2902423",    ccn:"4Q32-G5KM", notes:"LS101 — verify make/model" },
+];
+
+const TOTAL = BASE_STOPS.length;
+let completed  = JSON.parse(localStorage.getItem('bf_done')   || '{}');
+let edits      = JSON.parse(localStorage.getItem('bf_edits')  || '{}');
+let fieldNotes = JSON.parse(localStorage.getItem('bf_fnotes') || '{}');
+let flagged    = JSON.parse(localStorage.getItem('bf_flags')  || '{}');
+
+function save() {
+  localStorage.setItem('bf_done',   JSON.stringify(completed));
+  localStorage.setItem('bf_edits',  JSON.stringify(edits));
+  localStorage.setItem('bf_fnotes', JSON.stringify(fieldNotes));
+  localStorage.setItem('bf_flags',  JSON.stringify(flagged));
+}
+function getStop(id) {
+  const base = BASE_STOPS.find(s => s.id === id);
+  return { ...base, ...(edits[id] || {}), fieldNote: fieldNotes[id] || '' };
+}
+function isEdited(id) { return edits[id] && Object.keys(edits[id]).length > 0; }
+
+let currentFilter = 'all';
+let activeId = null;
+
+function updateHeader() {
+  const done  = Object.values(completed).filter(Boolean).length;
+  const flags = Object.values(flagged).filter(Boolean).length;
+  const pct   = Math.round(done / TOTAL * 100);
+  document.getElementById('pct-label').textContent = pct + '%';
+  document.getElementById('pct-label').style.color = pct === 100 ? '#4ade80' : '#fbbf24';
+  document.getElementById('pct-sub').textContent   = done + '/' + TOTAL + ' DONE';
+  const bar = document.getElementById('progress-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct === 100 ? '#4ade80' : 'linear-gradient(90deg,#f59e0b,#fbbf24)';
+  document.getElementById('tab-all').textContent       = 'ALL (' + TOTAL + ')';
+  document.getElementById('tab-remaining').textContent = 'REM (' + (TOTAL - done) + ')';
+  document.getElementById('tab-done').textContent      = 'DONE (' + done + ')';
+  document.getElementById('tab-flagged').textContent   = '🚩 FLAGS (' + flags + ')';
+  // export button highlight
+  const eb = document.getElementById('export-btn');
+  eb.className = 'export-btn export-has-data';
+}
+
+const ACTIVE_CLASS = { all:'active-all', remaining:'active-remaining', done:'active-done', flagged:'active-flagged' };
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-all','active-remaining','active-done','active-flagged'));
+  btn.classList.add(ACTIVE_CLASS[f]);
+  renderList();
+}
+
+function matches(s, q) {
+  if (!q) return true;
+  return (
+    s.address.toLowerCase().includes(q) || s.serial.toLowerCase().includes(q) ||
+    s.make.toLowerCase().includes(q)    || s.model.toLowerCase().includes(q)  ||
+    s.type.toLowerCase().includes(q)    || (s.ccn && s.ccn.toLowerCase().includes(q)) ||
+    s.notes.toLowerCase().includes(q)   || s.fieldNote.toLowerCase().includes(q)
+  );
+}
+
+function renderList() {
+  const q    = document.getElementById('search').value.toLowerCase();
+  const list = document.getElementById('stop-list');
+  const filtered = BASE_STOPS.filter(base => {
+    const s = getStop(base.id);
+    if (currentFilter === 'done'      && !completed[s.id]) return false;
+    if (currentFilter === 'remaining' &&  completed[s.id]) return false;
+    if (currentFilter === 'flagged'   && !flagged[s.id])   return false;
+    return matches(s, q);
+  });
+  if (!filtered.length) {
+    const msgs = { flagged:'🚩 No flagged stops.', done:'No completed stops yet.', remaining:'All stops completed!', all:'No stops match.' };
+    list.innerHTML = `<div class="empty-msg">${msgs[currentFilter]||msgs.all}</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(base => {
+    const s    = getStop(base.id);
+    const done = !!completed[s.id];
+    const isFl = !!flagged[s.id];
+    const inds = [
+      isFl             ? '<span class="ind ind-flag">🚩 Flagged</span>'   : '',
+      fieldNotes[s.id] ? '<span class="ind ind-note">✎ Field note</span>' : '',
+      isEdited(s.id)   ? '<span class="ind ind-edited">◈ Edited</span>'   : '',
+    ].filter(Boolean).join('');
+    return `<div class="stop-row${done?' done':''}${isFl?' flagged':''}" onclick="openDrawer(${s.id})">
+      <div class="stop-num">${s.id}</div>
+      <div class="stop-info">
+        <div class="stop-addr">${s.address}</div>
+        <div class="stop-meta"><span class="type-badge type-${s.type}">${s.type}</span><span class="stop-device">${s.size} · ${s.make} ${s.model}</span></div>
+        ${inds ? `<div class="row-indicators">${inds}</div>` : ''}
+      </div>
+      <button class="check-btn${done?' checked':''}" onclick="toggleStop(event,${s.id})">${done?'✓':''}</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleStop(e, id) {
+  e.stopPropagation();
+  completed[id] = !completed[id];
+  save(); updateHeader(); renderList();
+  if (activeId === id) updateDrawer();
+}
+function toggleFromDrawer() { completed[activeId] = !completed[activeId]; save(); updateHeader(); renderList(); updateDrawer(); }
+function toggleFlag() {
+  flagged[activeId] = !flagged[activeId];
+  if (!flagged[activeId]) delete flagged[activeId];
+  save(); updateHeader(); renderList(); updateDrawer();
+}
+
+function openDrawer(id) { activeId = id; showViewMode(); updateDrawer(); document.getElementById('overlay').classList.add('open'); document.getElementById('drawer').classList.add('open'); }
+function closeDrawer() { activeId = null; document.getElementById('overlay').classList.remove('open'); document.getElementById('drawer').classList.remove('open'); }
+function showViewMode() { document.getElementById('view-mode').style.display='block'; document.getElementById('edit-mode').style.display='none'; }
+
+function updateDrawer() {
+  if (!activeId) return;
+  const s    = getStop(activeId);
+  const done = !!completed[s.id];
+  const isFl = !!flagged[s.id];
+  isFl ? document.getElementById('flag-banner').classList.remove('hidden') : document.getElementById('flag-banner').classList.add('hidden');
+  document.getElementById('d-stopnum').textContent = 'STOP ' + s.id + ' OF ' + TOTAL;
+  const badge = document.getElementById('d-typebadge');
+  badge.textContent = s.type; badge.className = 'type-badge type-' + s.type;
+  document.getElementById('d-address').innerHTML = s.address + '<div class="drawer-city-sub">Boynton Beach, FL</div>';
+  const ov = edits[s.id] || {};
+  const cell = (lbl, val, key) => { const ch = key && ov[key]!==undefined; return `<div class="detail-cell${ch?' edited':''}"><div class="detail-label">${lbl}${ch?' ◈':''}</div><div class="detail-val">${val}</div></div>`; };
+  const ccnRow = s.ccn ? `<div class="detail-cell full"><div class="detail-label">CCN</div><div class="detail-val">${s.ccn}</div></div>` : '';
+  document.getElementById('d-grid').innerHTML = cell('TYPE',s.type,'type')+cell('SIZE',s.size,'size')+cell('MAKE',s.make,'make')+cell('MODEL',s.model,'model')+`<div class="detail-cell full${ov.serial!==undefined?' edited':''}"><div class="detail-label">SERIAL #${ov.serial!==undefined?' ◈':''}</div><div class="detail-val">${s.serial}</div></div>`+ccnRow;
+  const onb = document.getElementById('d-orig-notesbox');
+  if (s.notes) { document.getElementById('d-orig-notes').textContent=s.notes; onb.style.display='block'; } else { onb.style.display='none'; }
+  const fnb = document.getElementById('d-field-notesbox');
+  if (s.fieldNote) { document.getElementById('d-field-notes').textContent=s.fieldNote; fnb.style.display='block'; } else { fnb.style.display='none'; }
+  document.getElementById('d-nav').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.address + ', Boynton Beach, FL');
+  const cb = document.getElementById('d-complete'); cb.textContent = done?'✕ UNDO':'✓ DONE'; cb.className = 'complete-btn'+(done?' undo':'');
+  const fb = document.getElementById('d-flag'); fb.textContent = isFl?'🚩 FLAGGED':'🚩 FLAG'; fb.className = 'flag-btn'+(isFl?' active':'');
+  document.getElementById('d-prev').disabled = s.id===1;
+  document.getElementById('d-next').disabled = s.id===TOTAL;
+}
+
+function shiftStop(dir) { const newId=activeId+dir; if(newId>=1&&newId<=TOTAL){activeId=newId;showViewMode();updateDrawer();} }
+
+function openEdit() {
+  const s=getStop(activeId);
+  document.getElementById('e-subtitle').textContent=s.address;
+  document.getElementById('e-type').value=s.type; document.getElementById('e-size').value=s.size;
+  document.getElementById('e-make').value=s.make; document.getElementById('e-model').value=s.model;
+  document.getElementById('e-serial').value=s.serial; document.getElementById('e-fieldnotes').value=s.fieldNote||'';
+  document.getElementById('view-mode').style.display='none'; document.getElementById('edit-mode').style.display='block';
+  document.getElementById('drawer').scrollTop=0;
+}
+function closeEdit() { showViewMode(); }
+function saveEdit() {
+  const id=activeId; const base=BASE_STOPS.find(s=>s.id===id); const ov={};
+  ['type','size','make','model','serial'].forEach(k=>{const v=document.getElementById('e-'+k).value.trim(); if(v!==base[k])ov[k]=v;});
+  if(Object.keys(ov).length){edits[id]={...(edits[id]||{}), ...ov};}else{delete edits[id];}
+  const fn=document.getElementById('e-fieldnotes').value.trim();
+  if(fn){fieldNotes[id]=fn;}else{delete fieldNotes[id];}
+  save(); renderList(); showViewMode(); updateDrawer();
+}
+
+// ── EXPORT ──
+function csvCell(v) {
+  const s = (v === undefined || v === null) ? '' : String(v);
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function doExport() {
+  const now = new Date().toLocaleString('en-US', { dateStyle:'medium', timeStyle:'short' });
+  const done = Object.values(completed).filter(Boolean).length;
+
+  const headers = ['Stop#','Address','City','CCN','Type','Size','Make','Model','Serial','Status','Flagged','Field Note','Location Notes'];
+  const rows = BASE_STOPS.map(base => {
+    const s = getStop(base.id);
+    return [
+      s.id,
+      s.address,
+      'Boynton Beach, FL',
+      s.ccn || '',
+      s.type,
+      s.size,
+      s.make,
+      s.model,
+      s.serial,
+      completed[s.id] ? 'DONE' : 'REMAINING',
+      flagged[s.id]   ? 'YES'  : '',
+      fieldNotes[s.id] || '',
+      s.notes || '',
+    ].map(csvCell).join(',');
+  });
+
+  const csv = [
+    '# Backflow Testing Report — Boynton Beach FL',
+    '# Generated: ' + now,
+    '# Progress: ' + done + '/' + TOTAL + ' stops completed',
+    '',
+    headers.map(csvCell).join(','),
+    ...rows,
+  ].join('\r\n');
+
+  const filename = 'backflow-boynton-' + new Date().toISOString().slice(0,10) + '.csv';
+
+  // Try native file share first (mobile)
+  if (navigator.share && navigator.canShare) {
+    const file = new File([csv], filename, { type: 'text/csv' });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Backflow Report – Boynton Beach' }).catch(() => downloadCsv(csv, filename));
+      return;
+    }
+  }
+  downloadCsv(csv, filename);
+}
+
+function downloadCsv(csv, filename) {
+  try {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+  } catch(e) {
+    // Last resort: copy to clipboard
+    const ta = document.createElement('textarea');
+    ta.value = csv; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); alert('CSV copied to clipboard!\nPaste into a spreadsheet or email.'); }
+    catch(e2) { alert('Export failed. Please screenshot your flagged stops instead.'); }
+    document.body.removeChild(ta);
+  }
+}
+
+updateHeader();
+renderList();
+</script>
+</body>
+</html>
