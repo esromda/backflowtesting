@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Backflow Testing · Delray Beach</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'DM Mono', 'Courier New', monospace; background: #0f1117; min-height: 100vh; color: #e8eaf0; max-width: 480px; margin: 0 auto; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: #1a1d27; }
+  ::-webkit-scrollbar-thumb { background: #3a3f52; border-radius: 2px; }
+
+  #header { background: #13161f; border-bottom: 1px solid #2a2d3a; padding: 16px 20px 12px; position: sticky; top: 0; z-index: 10; }
+  .header-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+  .app-title { font-family: 'Barlow Condensed', sans-serif; font-size: 22px; font-weight: 700; letter-spacing: 0.02em; color: #f0f2ff; line-height: 1; }
+  .app-subtitle { font-size: 11px; color: #6b7280; margin-top: 3px; letter-spacing: 0.08em; }
+  .pct-label { font-family: 'Barlow Condensed', sans-serif; font-size: 28px; font-weight: 700; line-height: 1; text-align: right; }
+  .pct-sub { font-size: 11px; color: #6b7280; letter-spacing: 0.06em; text-align: right; }
+  #progress-bar-wrap { height: 4px; background: #2a2d3a; border-radius: 2px; overflow: hidden; margin-bottom: 12px; }
+  #progress-bar { height: 100%; width: 0%; border-radius: 2px; transition: width 0.3s ease; background: linear-gradient(90deg,#3b82f6,#60a5fa); }
+  #search { width: 100%; background: #1e2130; border: 1px solid #2a2d3a; border-radius: 8px; padding: 9px 12px; color: #e8eaf0; font-size: 13px; font-family: inherit; outline: none; margin-bottom: 10px; }
+  #search::placeholder { color: #4b5563; }
+  .filter-tabs { display: flex; gap: 5px; }
+  .filter-btn { flex: 1; padding: 6px 2px; border-radius: 6px; border: 1px solid #2a2d3a; background: transparent; color: #6b7280; font-size: 9px; font-family: inherit; font-weight: 500; letter-spacing: 0.05em; cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+  .filter-btn.active-all       { border-color: #3b82f6; background: #1e3a5f; color: #60a5fa; }
+  .filter-btn.active-remaining { border-color: #6b7280; background: #1e2130; color: #d1d5db; }
+  .filter-btn.active-done      { border-color: #22c55e; background: #14532d; color: #4ade80; }
+  .filter-btn.active-flagged   { border-color: #ef4444; background: #450a0a; color: #fca5a5; }
+
+  /* export bar */
+  #export-bar { padding: 10px 16px; border-bottom: 1px solid #2a2d3a; background: #13161f; }
+  .export-btn { width: 100%; padding: 10px; background: transparent; border: 1px solid #3a3f52; border-radius: 8px; color: #9ca3af; font-size: 11px; font-family: inherit; letter-spacing: 0.07em; cursor: pointer; transition: all 0.12s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .export-btn:active { background: #1e2130; }
+  .export-has-data { border-color: #3b82f6; color: #60a5fa; background: #1e3a5f; }
+
+  #stop-list { padding-bottom: 20px; }
+  .stop-row { display: flex; align-items: center; padding: 12px 16px; border-bottom: 1px solid #1e2130; cursor: pointer; transition: background 0.15s; }
+  .stop-row:active { background: #1e2130; }
+  .stop-row.done { opacity: 0.5; background: #13161f; }
+  .stop-row.flagged { border-left: 3px solid #ef4444; padding-left: 13px; }
+  .stop-row.flagged.done { border-left-color: #7f1d1d; }
+  .stop-num { width: 28px; height: 28px; border-radius: 6px; background: #1a1d27; border: 1px solid #3a3f52; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: #9ca3af; flex-shrink: 0; margin-right: 12px; }
+  .stop-row.done .stop-num { border-color: #2a2d3a; color: #4b5563; }
+  .stop-row.flagged .stop-num { border-color: #ef4444; color: #fca5a5; background: #450a0a; }
+  .stop-info { flex: 1; min-width: 0; }
+  .stop-addr { font-size: 13px; font-weight: 500; color: #e8eaf0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+  .stop-row.done .stop-addr { text-decoration: line-through; color: #4b5563; }
+  .stop-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .type-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.05em; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; }
+  .type-PVB { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+  .type-RP  { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+  .stop-device { font-size: 11px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row-indicators { display: flex; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
+  .ind { font-size: 10px; }
+  .ind-flag { color: #ef4444; } .ind-note { color: #60a5fa; } .ind-edited { color: #a78bfa; }
+  .check-btn { width: 36px; height: 36px; border-radius: 8px; border: 2px solid #3a3f52; background: transparent; color: #4b5563; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-left: 10px; transition: all 0.15s; }
+  .check-btn:active { transform: scale(0.92); }
+  .check-btn.checked { border-color: #22c55e; background: #14532d; color: #4ade80; }
+  .empty-msg { text-align: center; padding: 48px 20px; color: #4b5563; font-size: 13px; line-height: 1.6; }
+
+  #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 20; }
+  #overlay.open { display: block; animation: fadeIn 0.18s ease-out; }
+  #drawer { display: none; position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; background: #13161f; border-top: 1px solid #2a2d3a; border-radius: 16px 16px 0 0; z-index: 30; padding: 0 0 36px; max-height: 92vh; overflow-y: auto; }
+  #drawer.open { display: block; animation: slideUp 0.22s ease-out; }
+  .drag-handle { display: flex; justify-content: center; padding: 12px 0 8px; cursor: pointer; }
+  .drag-nub { width: 36px; height: 4px; border-radius: 2px; background: #3a3f52; }
+  .drawer-body { padding: 0 20px; }
+
+  #flag-banner { background: #450a0a; border: 1px solid #ef4444; border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  #flag-banner.hidden { display: none; }
+  .flag-banner-text { font-size: 11px; color: #fca5a5; letter-spacing: 0.05em; flex: 1; }
+  .flag-banner-remove { font-size: 10px; color: #ef4444; cursor: pointer; padding: 2px 6px; border: 1px solid #7f1d1d; border-radius: 4px; background: transparent; font-family: inherit; }
+
+  .drawer-top-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .drawer-stop-num { font-family: 'Barlow Condensed', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 0.1em; color: #6b7280; }
+  .drawer-address { font-family: 'Barlow Condensed', sans-serif; font-size: 24px; font-weight: 700; color: #f0f2ff; line-height: 1.2; margin-bottom: 16px; }
+  .drawer-city-sub { font-size: 14px; font-weight: 600; color: #6b7280; margin-top: 2px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .detail-cell { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 8px 12px; }
+  .detail-cell.full { grid-column: 1 / -1; }
+  .detail-cell.edited { border-color: #7c3aed; }
+  .detail-label { font-size: 10px; color: #6b7280; letter-spacing: 0.08em; margin-bottom: 3px; }
+  .detail-cell.edited .detail-label { color: #a78bfa; }
+  .detail-val { font-size: 14px; font-weight: 500; color: #e8eaf0; word-break: break-all; }
+  .notes-box { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+  .notes-box.orig  { border-left: 3px solid #4b5563; }
+  .notes-box.field { border-left: 3px solid #60a5fa; }
+  .notes-label { font-size: 10px; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .notes-box.orig  .notes-label { color: #6b7280; }
+  .notes-box.field .notes-label { color: #60a5fa; }
+  .notes-text { font-size: 13px; color: #d1d5db; line-height: 1.5; }
+
+  .action-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .nav-link { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 12px 8px; background: #1e3a5f; border: 1px solid #3b82f6; border-radius: 10px; color: #60a5fa; font-size: 12px; font-family: inherit; font-weight: 500; letter-spacing: 0.04em; text-decoration: none; }
+  .complete-btn { flex: 1; padding: 12px 8px; background: #14532d; border: 1px solid #22c55e; border-radius: 10px; color: #4ade80; font-size: 12px; font-family: inherit; font-weight: 500; letter-spacing: 0.04em; cursor: pointer; transition: all 0.12s; }
+  .complete-btn.undo { background: #1e2130; border-color: #3a3f52; color: #6b7280; }
+  .flag-btn { flex: 1; padding: 12px 8px; border-radius: 10px; font-size: 12px; font-family: inherit; font-weight: 500; letter-spacing: 0.04em; cursor: pointer; transition: all 0.12s; border: 1px solid #3a3f52; background: transparent; color: #6b7280; }
+  .flag-btn.active { background: #450a0a; border-color: #ef4444; color: #fca5a5; }
+  .flag-btn:active, .complete-btn:active { transform: scale(0.97); }
+  .edit-btn { width: 100%; padding: 11px; background: transparent; border: 1px solid #3a3f52; border-radius: 10px; color: #9ca3af; font-size: 12px; font-family: inherit; letter-spacing: 0.06em; cursor: pointer; margin-bottom: 10px; transition: all 0.12s; }
+  .edit-btn:active { background: #1e2130; }
+  .prev-next { display: flex; gap: 10px; }
+  .pn-btn { flex: 1; padding: 10px; background: transparent; border: 1px solid #2a2d3a; border-radius: 8px; color: #9ca3af; font-size: 12px; font-family: inherit; letter-spacing: 0.06em; cursor: pointer; }
+  .pn-btn:disabled { color: #3a3f52; cursor: default; }
+  .pn-btn:not(:disabled):active { background: #1e2130; }
+
+  .edit-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .edit-title { font-family: 'Barlow Condensed', sans-serif; font-size: 18px; font-weight: 700; color: #f0f2ff; letter-spacing: 0.04em; }
+  .edit-subtitle { font-size: 11px; color: #6b7280; margin-top: 2px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cancel-btn { padding: 6px 12px; background: transparent; border: 1px solid #3a3f52; border-radius: 6px; color: #9ca3af; font-size: 11px; font-family: inherit; letter-spacing: 0.06em; cursor: pointer; flex-shrink: 0; }
+  .section-label { font-size: 10px; color: #6b7280; letter-spacing: 0.1em; margin-bottom: 10px; }
+  .field-group { margin-bottom: 12px; }
+  .field-label { font-size: 10px; color: #6b7280; letter-spacing: 0.08em; margin-bottom: 5px; display: block; }
+  .field-input { width: 100%; background: #1e2130; border: 1px solid #2a2d3a; border-radius: 8px; padding: 9px 12px; color: #e8eaf0; font-size: 13px; font-family: inherit; outline: none; transition: border-color 0.12s; -webkit-appearance: none; }
+  .field-input:focus { border-color: #3b82f6; }
+  .field-textarea { width: 100%; background: #1e2130; border: 1px solid #2a2d3a; border-radius: 8px; padding: 9px 12px; color: #e8eaf0; font-size: 13px; font-family: inherit; outline: none; resize: vertical; min-height: 90px; line-height: 1.5; }
+  .field-textarea:focus { border-color: #3b82f6; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .divider { height: 1px; background: #2a2d3a; margin: 14px 0; }
+  .save-btn { width: 100%; padding: 14px; background: #1e3a5f; border: 1px solid #3b82f6; border-radius: 10px; color: #60a5fa; font-size: 13px; font-family: inherit; font-weight: 500; letter-spacing: 0.06em; cursor: pointer; margin-top: 4px; transition: opacity 0.12s; }
+  .save-btn:active { opacity: 0.8; }
+
+  @keyframes slideUp { from { transform: translateX(-50%) translateY(100%); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }
+  @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div class="header-top">
+    <div>
+      <div class="app-title">BACKFLOW TESTING</div>
+      <div class="app-subtitle">DELRAY BEACH, FL · 86 LOCATIONS</div>
+    </div>
+    <div>
+      <div class="pct-label" id="pct-label">0%</div>
+      <div class="pct-sub" id="pct-sub">0/86 DONE</div>
+    </div>
+  </div>
+  <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+  <input id="search" type="search" placeholder="Search address, serial, VCC, make…" oninput="renderList()" />
+  <div class="filter-tabs">
+    <button class="filter-btn active-all" onclick="setFilter('all',this)"       id="tab-all">ALL (86)</button>
+    <button class="filter-btn"            onclick="setFilter('remaining',this)"  id="tab-remaining">REM (86)</button>
+    <button class="filter-btn"            onclick="setFilter('done',this)"       id="tab-done">DONE (0)</button>
+    <button class="filter-btn"            onclick="setFilter('flagged',this)"    id="tab-flagged">🚩 FLAGS (0)</button>
+  </div>
+</div>
+
+<div id="export-bar">
+  <button class="export-btn export-has-data" id="export-btn" onclick="doExport()">📤 EXPORT ALL DATA AS CSV</button>
+</div>
+
+<div id="stop-list"></div>
+
+<div id="overlay" onclick="closeDrawer()"></div>
+<div id="drawer">
+  <div class="drag-handle" onclick="closeDrawer()"><div class="drag-nub"></div></div>
+  <div class="drawer-body">
+    <div id="view-mode">
+      <div id="flag-banner" class="hidden">
+        <span style="font-size:16px">🚩</span>
+        <span class="flag-banner-text">FLAGGED FOR REVIEW</span>
+        <button class="flag-banner-remove" onclick="toggleFlag()">REMOVE FLAG</button>
+      </div>
+      <div class="drawer-top-row">
+        <span class="drawer-stop-num" id="d-stopnum"></span>
+        <span class="type-badge" id="d-typebadge"></span>
+      </div>
+      <div class="drawer-address" id="d-address"></div>
+      <div class="detail-grid" id="d-grid"></div>
+      <div class="notes-box orig" id="d-orig-notesbox">
+        <div class="notes-label">LOCATION NOTES</div>
+        <div class="notes-text" id="d-orig-notes"></div>
+      </div>
+      <div class="notes-box field" id="d-field-notesbox">
+        <div class="notes-label">✎ FIELD NOTES</div>
+        <div class="notes-text" id="d-field-notes"></div>
+      </div>
+      <div class="action-row">
+        <a class="nav-link" id="d-nav" href="#" target="_blank">↗ NAV</a>
+        <button class="complete-btn" id="d-complete" onclick="toggleFromDrawer()"></button>
+        <button class="flag-btn" id="d-flag" onclick="toggleFlag()"></button>
+      </div>
+      <button class="edit-btn" onclick="openEdit()">✎ EDIT DEVICE INFO &amp; NOTES</button>
+      <div class="prev-next">
+        <button class="pn-btn" id="d-prev" onclick="shiftStop(-1)">← PREV</button>
+        <button class="pn-btn" id="d-next" onclick="shiftStop(1)">NEXT →</button>
+      </div>
+    </div>
+
+    <div id="edit-mode" style="display:none">
+      <div class="edit-header">
+        <div>
+          <div class="edit-title">EDIT STOP</div>
+          <div class="edit-subtitle" id="e-subtitle"></div>
+        </div>
+        <button class="cancel-btn" onclick="closeEdit()">CANCEL</button>
+      </div>
+      <div class="section-label">DEVICE INFORMATION</div>
+      <div class="field-row">
+        <div class="field-group"><label class="field-label">TYPE</label><select id="e-type" class="field-input"><option value="PVB">PVB</option><option value="RP">RP</option></select></div>
+        <div class="field-group"><label class="field-label">SIZE</label><input id="e-size" class="field-input" type="text" /></div>
+      </div>
+      <div class="field-row">
+        <div class="field-group"><label class="field-label">MAKE</label><input id="e-make" class="field-input" type="text" /></div>
+        <div class="field-group"><label class="field-label">MODEL</label><input id="e-model" class="field-input" type="text" /></div>
+      </div>
+      <div class="field-group"><label class="field-label">SERIAL #</label><input id="e-serial" class="field-input" type="text" /></div>
+      <div class="divider"></div>
+      <div class="section-label">FIELD NOTES</div>
+      <div class="field-group"><label class="field-label">NOTES FOR THIS STOP</label><textarea id="e-fieldnotes" class="field-textarea" placeholder="e.g. device corroded, serial mismatch, access issue…"></textarea></div>
+      <button class="save-btn" onclick="saveEdit()">SAVE CHANGES</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE_STOPS = [
+  // ── FAR WEST: W Atlantic Ave medians ──
+  { id:1,  vcc:"DEL490870/1",  address:"4199 W Atlantic Ave",           type:"PVB", size:'1½"', make:"Febco",   model:"765",     serial:"AB2331",    notes:"Inside of median in front of SE side of 4205 W. Atlantic Ave" },
+  { id:2,  vcc:"DEL490860/1",  address:"4099 W Atlantic Ave",           type:"PVB", size:'1½"', make:"Febco",   model:"765",     serial:"AA9875",    notes:"Inside of median in front of 4071 W. Atlantic Ave" },
+  { id:3,  vcc:"DEL490850/1",  address:"4001 W Atlantic Ave",           type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"T012094",   notes:"Inside of median on the SE side of 3945 W. Atlantic Ave" },
+  // ── OLD GERMANTOWN RD ──
+  { id:4,  vcc:"DEL474110/2",  address:"4060 Old Germantown Rd",        type:"PVB", size:'2"',  make:"Wilkins", model:"720-A",   serial:"522415",    notes:"30 ft northeast of restrooms in hedges by entrance" },
+  { id:5,  vcc:"DEL474110/1",  address:"4060 Old Germantown Rd",        type:"RP",  size:'1½"', make:"Wilkins", model:"975XL2",  serial:"4668568",   notes:"At meter — same property as stop 4" },
+  { id:6,  vcc:"DEL470180/1",  address:"4000 Old Germantown Rd",        type:"RP",  size:'2"',  make:"Febco",   model:"825Y",    serial:"AD7856",    notes:"Northeast entrance, 10ft east of stop sign, in tree area, 20ft west of fire hydrant" },
+  // ── SW 35TH AVE ──
+  { id:7,  vcc:"DEL348920/2",  address:"2220 SW 35th Ave",              type:"PVB", size:'1½"', make:"Watts",   model:"800M4",   serial:"004732",    notes:"Next to Lift Station 55" },
+  // ── LAKE IDA RD — west to east ──
+  { id:8,  vcc:"DEL553530/1",  address:"4650 Lake Ida Rd",              type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"829839",    notes:"In median between NW 46th Ave & NW 49th Ave" },
+  { id:9,  vcc:"DEL553520/1",  address:"3600 Lake Ida Rd",              type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"336774",    notes:"In median between Sunflower Ave & west entrance Chatelaine Blvd, west of Sunflower Ave" },
+  { id:10, vcc:"DEL553510/1",  address:"3300 Lake Ida Rd",              type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"829978",    notes:"In median between Sunflower Ave & east entrance Chatelaine Blvd, east of Sunflower Ave" },
+  { id:11, vcc:"DEL553500/1",  address:"2900 Lake Ida Rd",              type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"829838",    notes:"In median between Lawrence Rd & Coral Way, in front of property 2888 Lake Ida Rd" },
+  { id:12, vcc:"DEL553490/1",  address:"2302 Lake Ida Rd",              type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"582553",    notes:"In median just west of Davis Rd on Lake Ida" },
+  { id:13, vcc:"DEL518650/1",  address:"1302 Lake Ida Rd",              type:"PVB", size:'2"',  make:"Febco",   model:"765-2",   serial:"AA7332",    notes:"In median on Lake Ida just west of Rosevelt Ave" },
+  { id:14, vcc:"DEL518670/1",  address:"708 Lake Ida Rd",               type:"PVB", size:'2"',  make:"Febco",   model:"765-2",   serial:"A17359",    notes:"In median on Lake Ida just east of School" },
+  // ── BARWICK RD ──
+  { id:15, vcc:"DEL492000/1",  address:"0 Barwick Rd",                  type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAB64678",  notes:"Located south of Lake Ida Road on the west side of Barwick" },
+  { id:16, vcc:"DEL492010/1",  address:"565 Barwick Rd",                type:"PVB", size:'1"',  make:"Febco",   model:"765-1",   serial:"HJ35465",   notes:"220' South of Lake Ida Rd, on the east side" },
+  // ── SW QUADRANT ──
+  { id:17, vcc:"DEL525990/1",  address:"600 SW 15th Ave",               type:"PVB", size:'2"',  make:"Wilkins", model:"720-A",   serial:"121671",    notes:"" },
+  { id:18, vcc:"DEL167210/1",  address:"600 SW 15th Ave",               type:"RP",  size:'3"',  make:"Ames",    model:"4000SS",  serial:"112730",    notes:"West of Lift Station #20A inside of fence" },
+  { id:19, vcc:"DEL586090/1",  address:"600 SW 15th Ave",               type:"RP",  size:'3"',  make:"Ames",    model:"4000SS",  serial:"114605",    notes:"In the rear of park, across from 702 SW 15th Ave (inside of fence)" },
+  { id:20, vcc:"DEL526000/1",  address:"600 SW 15th Ave",               type:"RP",  size:'1"',  make:"Wilkins", model:"975XL",   serial:"2023828",   notes:"North side of park, west of LS#20A, inside fence" },
+  { id:21, vcc:"DEL345440/1",  address:"14 SW 13th Ave",                type:"RP",  size:'2"',  make:"Wilkins", model:"975XL",   serial:"2984153",   notes:"Inside of gate to the right of property 14 SW 13th Ave. Access from Atlantic Ave" },
+  { id:22, vcc:"DEL557700/1",  address:"901 SW 10th St",                type:"RP",  size:'4"',  make:"Watts",   model:"909",     serial:"178519",    notes:"NE side of property, inside of fence between church & cemetery" },
+  { id:23, vcc:"DEL320840/1",  address:"2350 Jaeger Dr",                type:"RP",  size:'2"',  make:"Wilkins", model:"975XL2",  serial:"4692952",   notes:"610 Egret Circle (Delray Racquet Club), by yellow barriers at south end of parking lot by tennis courts" },
+  { id:24, vcc:"DEL612750/1",  address:"1905 SW 4th Ave",               type:"RP",  size:'2"',  make:"Wilkins", model:"975XL",   serial:"3108289",   notes:"Inside of island in parking lot by restrooms before SW softball field" },
+  // ── I-95 / LINCOLN LN / NW ──
+  { id:25, vcc:"DEL554040/1",  address:"1601 W Atlantic Ave (A)",       type:"RP",  size:'2"',  make:"Wilkins", model:"975XL2",  serial:"ACP9003",   notes:"I-95 Southbound Exit Ramp to Atlantic Ave, west side, on corner" },
+  { id:26, vcc:"DEL554050/1",  address:"1601 W Atlantic Ave (B)",       type:"RP",  size:'2"',  make:"Wilkins", model:"975XL3",  serial:"AMA03306",  notes:"I-95 Southbound Exit Ramp to Atlantic Ave, west side, on corner" },
+  { id:27, vcc:"DEL523020/1",  address:"300 Lincoln Ln",                type:"PVB", size:'1½"', make:"Febco",   model:"765-1",   serial:"AB6029",    notes:"At curve on NW 3rd St. & Lincoln Lane, between guard rail and I-95 wall" },
+  { id:28, vcc:"DEL585200/1",  address:"915 NW 4th St",                 type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"G103213",   notes:"East median at NW 4th and Palm Trl" },
+  // ── W ATLANTIC AVE — west to east ──
+  { id:29, vcc:"DEL490780/1",  address:"2391 W Atlantic Ave",           type:"PVB", size:'1"',  make:"Watts",   model:"800M4",   serial:"441114",    notes:"In front of Atlantic High just east of light by sidewalk" },
+  { id:30, vcc:"DEL490760/1",  address:"1715 W Atlantic Ave",           type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAA94410",  notes:"In front of Tires Plus" },
+  { id:31, vcc:"DEL342740/1",  address:"1023 W Atlantic Ave",           type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CB929911",  notes:"Just east of NW 11th Ave on the north side of Atlantic Ave" },
+  { id:32, vcc:"DEL342760/1",  address:"0 SW 11th Ave",                 type:"PVB", size:'1"',  make:"Watts",   model:"800M4",   serial:"158430",    notes:"SL side left, on 11 Ave SW" },
+  { id:33, vcc:"DEL339800/1",  address:"805 W Atlantic Ave",            type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAA91074",  notes:"20ft east of county bus stop between NW 8th Ave & NW 9th Ave, north side of Atlantic Ave" },
+  { id:34, vcc:"DEL330790/1",  address:"715 W Atlantic Ave",            type:"PVB", size:'1"',  make:"Wilkins", model:"720A",    serial:"T604082",   notes:"In median between unit 707 & 712 W. Atlantic Ave" },
+  // ── S FEDERAL / LINDELL / S OCEAN ──
+  { id:35, vcc:"DEL605190/1",  address:"2200 S Federal Hwy",            type:"PVB", size:'2"',  make:"Febco",   model:"765-2",   serial:"HO14265",   notes:"Between Nissan and Cadillac dealer" },
+  { id:36, vcc:"DEL320410/1",  address:"1415 S Federal Hwy",            type:"PVB", size:'1"',  make:"Febco",   model:"765",     serial:"H250474",   notes:"1555 S. Federal Hwy, in middle of property by light pole in swale area east of sidewalk" },
+  { id:37, vcc:"DEL605790/1",  address:"1211 S Federal Hwy",            type:"RP",  size:'1½"', make:"Wilkins", model:"975XL",   serial:"ACN8744",   notes:"East side of restrooms" },
+  { id:38, vcc:"DEL605790/2",  address:"1211 S Federal Hwy",            type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"F111168",   notes:"East side of restrooms — same property as stop 37" },
+  { id:39, vcc:"DEL337420/1",  address:"220 Lindell Blvd",              type:"PVB", size:'1½"', make:"Watts",   model:"800M4",   serial:"011529",    notes:"" },
+  { id:40, vcc:"DEL547770/1",  address:"401 Lindell Blvd",              type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CB929977",  notes:"On the SE side of property 3137 Albatross Rd. In grass swale area by canal pit" },
+  { id:41, vcc:"DEL315170/1",  address:"1395 S Ocean Blvd",             type:"RP",  size:'2"',  make:"Ames",    model:"LF4000B", serial:"01846",     notes:"Up middle stairwell, to the right, to the east of sidewalk" },
+  { id:42, vcc:"DEL314600/1",  address:"321 S Ocean Blvd",              type:"RP",  size:'2"',  make:"Watts",   model:"919",     serial:"21989",     notes:"Across from 320 S Ocean Blvd, in hedges north of beach access, behind bench" },
+  { id:43, vcc:"DEL472940/1",  address:"101 N Ocean Blvd",              type:"RP",  size:'1½"', make:"Watts",   model:"919",     serial:"22200",     notes:"On A1A just north of Atlantic, next to 1st parking pay station" },
+  { id:44, vcc:"DEL314310/1",  address:"603 N Ocean Blvd",              type:"RP",  size:'1½"', make:"Watts",   model:"919",     serial:"22416",     notes:"Across from 602 Ocean" },
+  // ── SE CLUSTER ──
+  { id:45, vcc:"DEL630620/1",  address:"766 SE 5th Ave",                type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAA24186",  notes:"Meter in island on SE 8th St & SE 5th Ave, left side of 766 SE 5th Ave" },
+  { id:46, vcc:"DEL630680/1",  address:"934 SE 3rd Ave",                type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAA24174",  notes:"Front center" },
+  { id:47, vcc:"DEL630640/1",  address:"811 SE 3rd Ave",                type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"T569916",   notes:"Front center" },
+  { id:48, vcc:"DEL618790/1",  address:"502 SE 4th St",                 type:"RP",  size:'2"',  make:"Febco",   model:"825Y",    serial:"005565",    notes:"NW corner of SE 4th St and SE 6th Ave intersection, inside of cage" },
+  { id:49, vcc:"DEL630550/1",  address:"602 SE 4th Ave",                type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"T569894",   notes:"In green cage at meter" },
+  { id:50, vcc:"DEL630600/1",  address:"634 SE 3rd Ave",                type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAA24185",  notes:"Front center in island" },
+  { id:51, vcc:"DEL630610/1",  address:"600 SE 5th Ave",                type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"T570244",   notes:"Meter in island on SE 7th St & SE 5th Ave, Hertz Car Rental south parking lot side" },
+  { id:52, vcc:"DEL617910/1",  address:"384 E Mallory Cir",             type:"RP",  size:'2"',  make:"Febco",   model:"LF825Y",  serial:"J005553",   notes:"SE corner of SE 4th St. & SE 5th Ave" },
+  { id:53, vcc:"DEL630590/1",  address:"621 SE 3rd Ave",                type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CB904336",  notes:"Front left" },
+  { id:54, vcc:"DEL525970/1",  address:"101 SE 4th Ave",                type:"PVB", size:'2"',  make:"Wilkins", model:"720-A",   serial:"T000227",   notes:"SE intersection of SE 1st St & SE 4th Ave, in hedges" },
+  { id:55, vcc:"DELUTB/11",    address:"113 SE 2nd St",                 type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CB308375",  notes:"In hedges" },
+  { id:56, vcc:"DEL598800/1",  address:"99 SE 2nd Ave",                 type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"210002",    notes:"NE corner of SE 2nd Ave & SE 1st St" },
+  { id:57, vcc:"DEL552730/1",  address:"1114 S Swinton Ave",            type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAA91108",  notes:"NW of 1207 S. Swinton Ave, on the left corner of pit/berm by palm trees" },
+  // ── DOWNTOWN ATLANTIC AVE CORE ──
+  { id:58, vcc:"DEL323580/1",  address:"17 E Atlantic Ave",             type:"RP",  size:'2"',  make:"Watts",   model:"LF009M2", serial:"207450",    notes:"Across from 16 E Atlantic Ave at Old Time Square next to palm tree" },
+  { id:59, vcc:"DEL337720/1",  address:"103 E Atlantic Ave",            type:"RP",  size:'1½"', make:"Febco",   model:"825Y",    serial:"P9071",     notes:"In hedges east of 105 E. Atlantic Ave, on NE 1st Ave" },
+  { id:60, vcc:"DEL472150/1",  address:"49 S Swinton Ave",              type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"T008657",   notes:"NE corner of SW 1st St & S Swinton Ave" },
+  { id:61, vcc:"DEL355650/9",  address:"201 W Atlantic Ave",            type:"RP",  size:'¾"',  make:"Watts",   model:"009M2",   serial:"125536",    notes:"Under the west bleachers, behind bathroom" },
+  { id:62, vcc:"DEL355650/10", address:"201 W Atlantic Ave",            type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"T043624",   notes:"SS Stadium at courts" },
+  { id:63, vcc:"DEL355660/1",  address:"201 W Atlantic Ave",            type:"PVB", size:'2"',  make:"Febco",   model:"765",     serial:"AA7224",    notes:"SE corner of tennis court #1 inside of island" },
+  { id:64, vcc:"DEL605830/1",  address:"201 W Atlantic Ave",            type:"RP",  size:'2"',  make:"Wilkins", model:"975XL",   serial:"2619116",   notes:"On NW 1st Ave in between first 2 tennis courts, outside of fence" },
+  { id:65, vcc:"DEL355650/11", address:"201 W Atlantic Ave",            type:"RP",  size:'1"',  make:"Watts",   model:"009",     serial:"21038",     notes:"SS Stadium at courts" },
+  { id:66, vcc:"DEL90380/3",   address:"201 W Atlantic Ave",            type:"RP",  size:'1"',  make:"Watts",   model:"009",     serial:"91480",     notes:"East side between tennis courts by drinking fountain" },
+  { id:67, vcc:"DEL482060/1",  address:"30 NW 1st Ave",                 type:"RP",  size:'2"',  make:"Wilkins", model:"975XL",   serial:"195687",    notes:"Next to the north restrooms" },
+  { id:68, vcc:"DEL322090/1",  address:"51 N Swinton Ave",              type:"PVB", size:'2"',  make:"Watts",   model:"800M4",   serial:"021832",    notes:"In rear on NE 1st Ave in green cage by men's restroom" },
+  { id:69, vcc:"DEL567210/1",  address:"60½ NE 2nd Ave",                type:"RP",  size:'2"',  make:"Wilkins", model:"975XL",   serial:"3208354",   notes:"Old School Square outdoor market area on NE 1st Ave & alleyway" },
+  { id:70, vcc:"DEL465940/1",  address:"9½ NE 1st Ave",                 type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"CAA91098",  notes:"City parking to the east of 9 NE 2nd St" },
+  { id:71, vcc:"DEL602980/1",  address:"95 NE 1st Ave",                 type:"PVB", size:'1½"', make:"Watts",   model:"800M4",   serial:"020713",    notes:"On the SE corner of NE 1st Ave & NE 1st St in hedges" },
+  { id:72, vcc:"DEL544650/1",  address:"134 NE 1st St",                 type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"608178",    notes:"SW corner of NE 1st St and NE 2nd Ave" },
+  // ── NE CORRIDOR ──
+  { id:73, vcc:"DEL545500/1",  address:"243 NE 3rd St",                 type:"PVB", size:'1½"', make:"Watts",   model:"800M4",   serial:"009749",    notes:"Inside of island south of 301 NE 2nd Ave" },
+  { id:74, vcc:"DEL321850/1",  address:"NE 8th St & NE 3rd Ave",        type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"T011507",   notes:"SW corner of George Bush and NE 3rd Ave" },
+  { id:75, vcc:"DEL321710/1",  address:"George Bush Blvd & NE 2nd Ave", type:"PVB", size:'1"',  make:"Wilkins", model:"720-A",   serial:"T604136",   notes:"At 121 George Bush Blvd. on curve" },
+  { id:76, vcc:"DEL433NE5/1",  address:"433 NE 5th Ave",                type:"RP",  size:'2"',  make:"Febco",   model:"LF825Y",  serial:"J005490",   notes:"At 393 NE 5th Ave. on the corner" },
+  { id:77, vcc:"DEL618780/1",  address:"502 NE 4th St",                 type:"RP",  size:'2"',  make:"Febco",   model:"825Y",    serial:"J035807",   notes:"At 430 NE 6th Ave on the SE corner inside island" },
+  { id:78, vcc:"DEL547550/1",  address:"250 NE 5th Ct",                 type:"PVB", size:'1"',  make:"Febco",   model:"765",     serial:"HI96379",   notes:"Inside of island at the round-a-bout in front of 525 NE 3rd Ave suite #101" },
+  { id:79, vcc:"DEL547500/1",  address:"4 NE 13th St",                  type:"PVB", size:'1"',  make:"Febco",   model:"765-1",   serial:"H035814",   notes:"East side of intersection of NE 13th St and Swinton" },
+  { id:80, vcc:"DEL547540/1",  address:"125 NE 10th St",                type:"PVB", size:'1"',  make:"Febco",   model:"765",     serial:"H036609",   notes:"In front of 125 NE 10th St., inside of island" },
+  { id:81, vcc:"DEL541510/1",  address:"1101 NE 3rd Ave",               type:"PVB", size:'2"',  make:"Wilkins", model:"720-A",   serial:"T011648",   notes:"On NE 3rd Ave just north of 10th St on east side of street" },
+  { id:82, vcc:"DEL560780/1",  address:"3 NE 16th St",                  type:"PVB", size:'1"',  make:"Febco",   model:"765",     serial:"H201781",   notes:"In front of 5 NE 16th St, inside of island" },
+  { id:83, vcc:"DEL617920/1",  address:"433 NE 5th Ave",                type:"RP",  size:'2"',  make:"Febco",   model:"LF825Y",  serial:"J005490",   notes:"At 393 NE 5th Ave. on the corner" },
+  // ── FAR NORTH ──
+  { id:84, vcc:"DEL339310/1",  address:"2201 N Federal Hwy",            type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"648408",    notes:"45ft south of 2201 N. Federal Hwy south entrance, in median" },
+  { id:85, vcc:"DEL528990/1",  address:"1309 N Federal Hwy",            type:"PVB", size:'1½"', make:"Wilkins", model:"720-A",   serial:"400921",    notes:"1st Island south of 14th. Median across from golf place" },
+  { id:86, vcc:"DEL79750/1",   address:"201 N Dixie Blvd",              type:"RP",  size:'1½"', make:"Wilkins", model:"975XL2",  serial:"4273833",   notes:"Del Ida Park" },
+];
+
+const TOTAL = BASE_STOPS.length;
+let completed  = JSON.parse(localStorage.getItem('dbd_done')   || '{}');
+let edits      = JSON.parse(localStorage.getItem('dbd_edits')  || '{}');
+let fieldNotes = JSON.parse(localStorage.getItem('dbd_fnotes') || '{}');
+let flagged    = JSON.parse(localStorage.getItem('dbd_flags')  || '{}');
+
+function save() {
+  localStorage.setItem('dbd_done',   JSON.stringify(completed));
+  localStorage.setItem('dbd_edits',  JSON.stringify(edits));
+  localStorage.setItem('dbd_fnotes', JSON.stringify(fieldNotes));
+  localStorage.setItem('dbd_flags',  JSON.stringify(flagged));
+}
+function getStop(id) { const base = BASE_STOPS.find(s => s.id === id); return { ...base, ...(edits[id] || {}), fieldNote: fieldNotes[id] || '' }; }
+function isEdited(id) { return edits[id] && Object.keys(edits[id]).length > 0; }
+
+let currentFilter = 'all';
+let activeId = null;
+
+function updateHeader() {
+  const done  = Object.values(completed).filter(Boolean).length;
+  const flags = Object.values(flagged).filter(Boolean).length;
+  const pct   = Math.round(done / TOTAL * 100);
+  document.getElementById('pct-label').textContent = pct + '%';
+  document.getElementById('pct-label').style.color = pct === 100 ? '#4ade80' : '#60a5fa';
+  document.getElementById('pct-sub').textContent   = done + '/' + TOTAL + ' DONE';
+  const bar = document.getElementById('progress-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct === 100 ? '#4ade80' : 'linear-gradient(90deg,#3b82f6,#60a5fa)';
+  document.getElementById('tab-all').textContent       = 'ALL (' + TOTAL + ')';
+  document.getElementById('tab-remaining').textContent = 'REM (' + (TOTAL - done) + ')';
+  document.getElementById('tab-done').textContent      = 'DONE (' + done + ')';
+  document.getElementById('tab-flagged').textContent   = '🚩 FLAGS (' + flags + ')';
+  const eb = document.getElementById('export-btn');
+  eb.className = 'export-btn export-has-data';
+}
+
+const ACTIVE_CLASS = { all:'active-all', remaining:'active-remaining', done:'active-done', flagged:'active-flagged' };
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active-all','active-remaining','active-done','active-flagged'));
+  btn.classList.add(ACTIVE_CLASS[f]);
+  renderList();
+}
+
+function matches(s, q) {
+  if (!q) return true;
+  return (
+    s.address.toLowerCase().includes(q) || s.serial.toLowerCase().includes(q) ||
+    s.make.toLowerCase().includes(q)    || s.model.toLowerCase().includes(q)  ||
+    s.type.toLowerCase().includes(q)    || (s.vcc && s.vcc.toLowerCase().includes(q)) ||
+    s.notes.toLowerCase().includes(q)   || s.fieldNote.toLowerCase().includes(q)
+  );
+}
+
+function renderList() {
+  const q    = document.getElementById('search').value.toLowerCase();
+  const list = document.getElementById('stop-list');
+  const filtered = BASE_STOPS.filter(base => {
+    const s = getStop(base.id);
+    if (currentFilter === 'done'      && !completed[s.id]) return false;
+    if (currentFilter === 'remaining' &&  completed[s.id]) return false;
+    if (currentFilter === 'flagged'   && !flagged[s.id])   return false;
+    return matches(s, q);
+  });
+  if (!filtered.length) {
+    const msgs = { flagged:'🚩 No flagged stops.', done:'No completed stops yet.', remaining:'All stops completed!', all:'No stops match.' };
+    list.innerHTML = `<div class="empty-msg">${msgs[currentFilter]||msgs.all}</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(base => {
+    const s    = getStop(base.id);
+    const done = !!completed[s.id];
+    const isFl = !!flagged[s.id];
+    const inds = [
+      isFl             ? '<span class="ind ind-flag">🚩 Flagged</span>'   : '',
+      fieldNotes[s.id] ? '<span class="ind ind-note">✎ Field note</span>' : '',
+      isEdited(s.id)   ? '<span class="ind ind-edited">◈ Edited</span>'   : '',
+    ].filter(Boolean).join('');
+    return `<div class="stop-row${done?' done':''}${isFl?' flagged':''}" onclick="openDrawer(${s.id})">
+      <div class="stop-num">${s.id}</div>
+      <div class="stop-info">
+        <div class="stop-addr">${s.address}</div>
+        <div class="stop-meta"><span class="type-badge type-${s.type}">${s.type}</span><span class="stop-device">${s.size} · ${s.make} ${s.model}</span></div>
+        ${inds ? `<div class="row-indicators">${inds}</div>` : ''}
+      </div>
+      <button class="check-btn${done?' checked':''}" onclick="toggleStop(event,${s.id})">${done?'✓':''}</button>
+    </div>`;
+  }).join('');
+}
+
+function toggleStop(e, id) { e.stopPropagation(); completed[id] = !completed[id]; save(); updateHeader(); renderList(); if (activeId === id) updateDrawer(); }
+function toggleFromDrawer() { completed[activeId] = !completed[activeId]; save(); updateHeader(); renderList(); updateDrawer(); }
+function toggleFlag() { flagged[activeId] = !flagged[activeId]; if (!flagged[activeId]) delete flagged[activeId]; save(); updateHeader(); renderList(); updateDrawer(); }
+
+function openDrawer(id) { activeId = id; showViewMode(); updateDrawer(); document.getElementById('overlay').classList.add('open'); document.getElementById('drawer').classList.add('open'); }
+function closeDrawer()  { activeId = null; document.getElementById('overlay').classList.remove('open'); document.getElementById('drawer').classList.remove('open'); }
+function showViewMode() { document.getElementById('view-mode').style.display='block'; document.getElementById('edit-mode').style.display='none'; }
+
+function updateDrawer() {
+  if (!activeId) return;
+  const s    = getStop(activeId);
+  const done = !!completed[s.id];
+  const isFl = !!flagged[s.id];
+  isFl ? document.getElementById('flag-banner').classList.remove('hidden') : document.getElementById('flag-banner').classList.add('hidden');
+  document.getElementById('d-stopnum').textContent = 'STOP ' + s.id + ' OF ' + TOTAL;
+  const badge = document.getElementById('d-typebadge'); badge.textContent = s.type; badge.className = 'type-badge type-' + s.type;
+  document.getElementById('d-address').innerHTML = s.address + '<div class="drawer-city-sub">Delray Beach, FL</div>';
+  const ov = edits[s.id] || {};
+  const cell = (lbl, val, key) => { const ch = key && ov[key]!==undefined; return `<div class="detail-cell${ch?' edited':''}"><div class="detail-label">${lbl}${ch?' ◈':''}</div><div class="detail-val">${val}</div></div>`; };
+  const vccRow = s.vcc ? `<div class="detail-cell full"><div class="detail-label">VCC #</div><div class="detail-val">${s.vcc}</div></div>` : '';
+  document.getElementById('d-grid').innerHTML = cell('TYPE',s.type,'type')+cell('SIZE',s.size,'size')+cell('MAKE',s.make,'make')+cell('MODEL',s.model,'model')+`<div class="detail-cell full${ov.serial!==undefined?' edited':''}"><div class="detail-label">SERIAL #${ov.serial!==undefined?' ◈':''}</div><div class="detail-val">${s.serial}</div></div>`+vccRow;
+  const onb = document.getElementById('d-orig-notesbox'); if (s.notes) { document.getElementById('d-orig-notes').textContent=s.notes; onb.style.display='block'; } else { onb.style.display='none'; }
+  const fnb = document.getElementById('d-field-notesbox'); if (s.fieldNote) { document.getElementById('d-field-notes').textContent=s.fieldNote; fnb.style.display='block'; } else { fnb.style.display='none'; }
+  document.getElementById('d-nav').href = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s.address + ', Delray Beach, FL');
+  const cb = document.getElementById('d-complete'); cb.textContent = done?'✕ UNDO':'✓ DONE'; cb.className = 'complete-btn'+(done?' undo':'');
+  const fb = document.getElementById('d-flag'); fb.textContent = isFl?'🚩 FLAGGED':'🚩 FLAG'; fb.className = 'flag-btn'+(isFl?' active':'');
+  document.getElementById('d-prev').disabled = s.id===1;
+  document.getElementById('d-next').disabled = s.id===TOTAL;
+}
+
+function shiftStop(dir) { const newId=activeId+dir; if(newId>=1&&newId<=TOTAL){activeId=newId;showViewMode();updateDrawer();} }
+
+function openEdit() {
+  const s=getStop(activeId);
+  document.getElementById('e-subtitle').textContent=s.address;
+  document.getElementById('e-type').value=s.type; document.getElementById('e-size').value=s.size;
+  document.getElementById('e-make').value=s.make; document.getElementById('e-model').value=s.model;
+  document.getElementById('e-serial').value=s.serial; document.getElementById('e-fieldnotes').value=s.fieldNote||'';
+  document.getElementById('view-mode').style.display='none'; document.getElementById('edit-mode').style.display='block';
+  document.getElementById('drawer').scrollTop=0;
+}
+function closeEdit() { showViewMode(); }
+function saveEdit() {
+  const id=activeId; const base=BASE_STOPS.find(s=>s.id===id); const ov={};
+  ['type','size','make','model','serial'].forEach(k=>{const v=document.getElementById('e-'+k).value.trim(); if(v!==base[k])ov[k]=v;});
+  if(Object.keys(ov).length){edits[id]={...(edits[id]||{}), ...ov};}else{delete edits[id];}
+  const fn=document.getElementById('e-fieldnotes').value.trim();
+  if(fn){fieldNotes[id]=fn;}else{delete fieldNotes[id];}
+  save(); renderList(); showViewMode(); updateDrawer();
+}
+
+// ── EXPORT ──
+function csvCell(v) {
+  const s = (v === undefined || v === null) ? '' : String(v);
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+
+function doExport() {
+  const now  = new Date().toLocaleString('en-US', { dateStyle:'medium', timeStyle:'short' });
+  const done = Object.values(completed).filter(Boolean).length;
+
+  const headers = ['Stop#','Address','City','VCC','Type','Size','Make','Model','Serial','Status','Flagged','Field Note','Location Notes'];
+  const rows = BASE_STOPS.map(base => {
+    const s = getStop(base.id);
+    return [
+      s.id,
+      s.address,
+      'Delray Beach, FL',
+      s.vcc || '',
+      s.type,
+      s.size,
+      s.make,
+      s.model,
+      s.serial,
+      completed[s.id] ? 'DONE' : 'REMAINING',
+      flagged[s.id]   ? 'YES'  : '',
+      fieldNotes[s.id] || '',
+      s.notes || '',
+    ].map(csvCell).join(',');
+  });
+
+  const csv = [
+    '# Backflow Testing Report — Delray Beach FL',
+    '# Generated: ' + now,
+    '# Progress: ' + done + '/' + TOTAL + ' stops completed',
+    '',
+    headers.map(csvCell).join(','),
+    ...rows,
+  ].join('\r\n');
+
+  const filename = 'backflow-delray-' + new Date().toISOString().slice(0,10) + '.csv';
+
+  if (navigator.share && navigator.canShare) {
+    const file = new File([csv], filename, { type: 'text/csv' });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file], title: 'Backflow Report – Delray Beach' }).catch(() => downloadCsv(csv, filename));
+      return;
+    }
+  }
+  downloadCsv(csv, filename);
+}
+
+function downloadCsv(csv, filename) {
+  // On iOS, blob URLs are unreliable — use text share or clipboard instead
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  if (isIOS) {
+    if (navigator.share) {
+      navigator.share({ title: filename, text: csv })
+        .catch(() => copyToClipboard(csv));
+    } else {
+      copyToClipboard(csv);
+    }
+    return;
+  }
+  // Desktop: trigger real file download
+  try {
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url; a.download = filename; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); document.body.removeChild(a); }, 1000);
+  } catch(e) {
+    copyToClipboard(csv);
+  }
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text)
+      .then(() => alert('CSV copied to clipboard!\nPaste it into an email, Notes, or spreadsheet app.'))
+      .catch(() => legacyCopy(text));
+  } else {
+    legacyCopy(text);
+  }
+}
+
+function legacyCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.left='-9999px';
+  document.body.appendChild(ta); ta.focus(); ta.select();
+  try { document.execCommand('copy'); alert('CSV copied to clipboard!\nPaste it into an email, Notes, or spreadsheet app.'); }
+  catch(e) { alert('Could not copy. Try again or screenshot the flagged stops.'); }
+  document.body.removeChild(ta);
+}
+
+updateHeader();
+renderList();
+</script>
+</body>
+</html>
